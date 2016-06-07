@@ -6,9 +6,7 @@ echo "STARTING TEST"
 
 cd pipeline_job_resource
 
-cat jarvis_api_sa_dev.txt
-
-line=$(head -n 1 filename)
+line=$(head -n 1 jarvis_api_sa_dev.txt)
 if [[ $line == *"succeeded"* ]]
 then
   exit 0;

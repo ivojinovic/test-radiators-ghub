@@ -1,0 +1,56 @@
+---
+meta:
+  name:           (( param "Name your pipeline" ))
+
+  concourse_username: (( param "Specify your concourse password" ))
+  concourse_password: (( param "Specify your concourse password" ))
+
+  jira_username: (( param "Specify your JIRA password" ))
+  jira_password: (( param "Specify your JIRA password" ))
+
+resource_types:
+
+- name: concourse-resource-test
+  type: docker-image
+  source:
+    repository: ivanvojinovic/concourse-resource-test
+    tag: latest
+
+resources:
+
+- name: cheetah_ruby
+  type: docker-image
+  source:
+    repository: docker.zipcar.io:443/cheetah_ruby
+    tag: ruby23
+
+- name: crt
+  type: concourse-resource-test
+  source:
+    username: (( grab meta.concourse_username ))
+    password: (( grab meta.concourse_password ))
+    usernamejira: (( grab meta.jira_username ))
+    passwordjira: (( grab meta.jira_password ))
+
+- name: crt-source-code
+  type: git
+  source:
+    uri: https://github.com/ivojinovic/concourse-resource-test.git
+    branch: master
+
+jobs:
+- name: jarvis_api_master_isolation_tests
+  plan:
+    - get: crt
+    - get: crt-source-code
+    - task: isolation-tests-status
+      config:
+        platform: linux
+        image: docker://docker.zipcar.io/cheetah_ruby#ruby23
+        inputs:
+        - name: crt
+          path: crtdir
+        - name: crt-source-code
+          path: crtsrcdir
+        run:
+          path: crtsrcdir/test_pipeline/scripts/isolation-tests-status.sh

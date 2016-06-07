@@ -1,0 +1,68 @@
+#!/bin/bash
+#
+# ci/repipe
+#
+# Script for merging together pipeline configuration files
+# (via Spruce!) and configuring Concourse.
+#
+# author:  James Hunt <james@niftylogic.com>
+#          Dennis Bell <dennis.j.bell@gmail.com>
+# created: 2016-03-04
+
+need_command() {
+	local cmd=${1:?need_command() - no command name given}
+
+	if [[ ! -x "$(command -v $cmd)" ]]; then
+		echo >&2 "${cmd} is not installed."
+		if [[ "${cmd}" == "spruce" ]]; then
+			echo >&2 "Please download it from https://github.com/geofffranks/spruce/releases"
+		fi
+		exit 2
+	fi
+}
+
+cd $(dirname $BASH_SOURCE[0])
+echo "Working in $(pwd)"
+need_command spruce
+
+# Allow for target-specific settings
+[ -n ${CONCOURSE_TARGET} ] && TARGET=${CONCOURSE_TARGET}
+settings_file="$(ls -1 settings.yaml ${TARGET:+"settings-${TARGET}.yaml"} 2>/dev/null | tail -n1)"
+if [[ -z "$settings_file" ]]
+then
+  echo >&2 "Missing local settings in test_pipeline/settings.yaml${TARGET:+" or test_pipeline/settings-${TARGET}.yaml"}!"
+  exit 1
+fi
+
+echo >&2 "Using settings found in ${settings_file}"
+
+credentials_file="$(ls -1 credentials.yaml ${TARGET:+"credentials-${TARGET}.yaml"} 2>/dev/null | tail -n1)"
+if [[ -z "credentials_file" ]]
+then
+  echo >&2 "Missing local settings in test_pipeline/credentials.yaml${TARGET:+" or test_pipeline/credentials-${TARGET}.yaml"}!"
+  exit 1
+fi
+
+echo >&2 "Using settings found in ${credentials_file}"
+
+set -e
+trap "rm -f deploy.yaml" QUIT TERM EXIT INT
+spruce merge pipeline.yaml ${settings_file} ${credentials_file} > deploy.yaml
+PIPELINE=$(spruce json deploy.yaml | jq -r '.meta.name // ""')
+if [[ -z ${PIPELINE} ]]; then
+	echo >&2 "Missing pipeline name in test_pipeline/settings.yaml!"
+	exit 1
+fi
+if [[ -z ${TARGET} ]]; then
+	TARGET=$(spruce json deploy.yaml | jq -r '.meta.target // ""')
+fi
+if [[ -z ${TARGET} ]]; then
+	echo >&2 "Missing Concourse Target in test_pipeline/settings.yaml!"
+	exit 1
+fi
+
+fly_cmd="${FLY_CMD:-fly}"
+
+set -x
+$fly_cmd --target ${TARGET} set-pipeline     --pipeline ${PIPELINE} --config deploy.yaml
+$fly_cmd --target ${TARGET} unpause-pipeline --pipeline ${PIPELINE}

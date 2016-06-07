@@ -1,0 +1,8 @@
+---
+meta:
+  name:     test_radiators
+  target:   savannah
+  url:      http://192.168.72.209
+
+  git:
+    uri:    ssh://git@github.com:ivojinovic/concourse-resource-test.git

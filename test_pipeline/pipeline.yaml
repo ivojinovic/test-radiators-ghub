@@ -40,7 +40,9 @@ jobs:
 - name: jarvis_api_master_isolation_tests
   plan:
     - get: pipeline-job-resource
+      trigger: true
     - get: test-radiators-git-repo
+      trigger: true
     - task: isolation-tests-status
       config:
         platform: linux

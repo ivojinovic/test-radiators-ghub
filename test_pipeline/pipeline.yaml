@@ -8,49 +8,47 @@ meta:
   jira_username: (( param "Specify your JIRA password" ))
   jira_password: (( param "Specify your JIRA password" ))
 
+  git:
+    private_key:  (( param "Specify git repository private key" ))
+
 resource_types:
 
-- name: concourse-resource-test
+- name: pipeline-job-resource-type
   type: docker-image
   source:
-    repository: ivanvojinovic/concourse-resource-test
+    repository: ivanvojinovic/pipeline-job-resource
     tag: latest
 
 resources:
 
-- name: cheetah_ruby
-  type: docker-image
-  source:
-    repository: docker.zipcar.io:443/cheetah_ruby
-    tag: ruby23
-
-- name: crt
-  type: concourse-resource-test
+- name: pipeline-job-resource
+  type: pipeline-job-resource-type
   source:
     username: (( grab meta.concourse_username ))
     password: (( grab meta.concourse_password ))
     usernamejira: (( grab meta.jira_username ))
     passwordjira: (( grab meta.jira_password ))
 
-- name: crt-source-code
+- name: test-radiators-git-repo
   type: git
   source:
-    uri: https://github.com/ivojinovic/concourse-resource-test.git
+    uri: ssh://git@stash.zipcar.com:7999/tool/test-radiators.git
+    private_key: (( grab meta.git.private_key ))
     branch: master
 
 jobs:
 - name: jarvis_api_master_isolation_tests
   plan:
-    - get: crt
-    - get: crt-source-code
+    - get: pipeline-job-resource
+    - get: test-radiators-git-repo
     - task: isolation-tests-status
       config:
         platform: linux
         image: docker://docker.zipcar.io/cheetah_ruby#ruby23
         inputs:
-        - name: crt
-          path: crtdir
-        - name: crt-source-code
-          path: crtsrcdir
+        - name: pipeline-job-resource
+          path: pipeline_job_resource
+        - name: test-radiators-git-repo
+          path: test_radiators
         run:
-          path: crtsrcdir/test_pipeline/scripts/isolation-tests-status.sh
+          path: test_radiators/test_pipeline/scripts/isolation-tests-status.sh

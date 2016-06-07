@@ -27,7 +27,16 @@ resources:
     concourse_url: http://192.168.72.209/
     username: (( grab meta.concourse_username ))
     password: (( grab meta.concourse_password ))
-    project: jarvis_api
+    pipeline: jarvis_api
+    job: static-analysis-dev-branches
+
+- name: pjr-places-sa-dev
+  type: pipeline-job-resource-type
+  source:
+    concourse_url: http://192.168.72.209/
+    username: (( grab meta.concourse_username ))
+    password: (( grab meta.concourse_password ))
+    pipeline: places
     job: static-analysis-dev-branches
 
 - name: test-radiators-git-repo
@@ -55,3 +64,27 @@ jobs:
           path: test_radiators
         run:
           path: test_radiators/test_pipeline/scripts/status.sh
+        params:
+          PIPELINE: places
+          JOB: static-analysis-dev-branches
+
+- name: places_sa_dev
+  plan:
+    - get: pjr-places-sa-dev
+      trigger: true
+    - get: test-radiators-git-repo
+      trigger: true
+    - task: places_sa_dev-task
+      config:
+        platform: linux
+        image: docker://docker.zipcar.io/cheetah_ruby#ruby23
+        inputs:
+        - name: pjr-places-sa-dev
+          path: pipeline_job_resource
+        - name: test-radiators-git-repo
+          path: test_radiators
+        run:
+          path: test_radiators/test_pipeline/scripts/status.sh
+        params:
+          PIPELINE: places
+          JOB: static-analysis-dev-branches
